@@ -24,6 +24,11 @@
   "workers": [
     {
       "worker_type": "Managed",
+	  "flags": [
+             {
+                 "name": "improbable_burned",
+                 "value": "23"
+             }],
       "permissions": [{
         "entity_creation": {
           "allow": true

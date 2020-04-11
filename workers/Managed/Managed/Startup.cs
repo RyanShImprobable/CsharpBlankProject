@@ -73,12 +73,22 @@ namespace Managed
                         Environment.Exit(ErrorExitStatus);
                     }
                 });
+
+
                IDictionary<EntityId, Entity> entities = CreateTrees();
                 foreach (KeyValuePair<EntityId, Entity> entry in entities)
                 {
                     connection.SendCreateEntityRequest(entry.Value, entry.Key, new Option<uint>());
                 }
-                
+
+                String burned_value;
+                connection.GetWorkerFlag("improbable_burned").TryGetValue(out burned_value);
+                int burned_default = Int32.Parse(burned_value);
+                foreach (KeyValuePair<EntityId, Entity> entry in entities)
+                {
+                    connection.SendComponentUpdate(entry.Key, new Tree.Update().SetBurned(burned_default));
+                }
+
                 while (isConnected)
                 {
                     using (var opList = connection.GetOpList(GetOpListTimeoutInMilliseconds))
@@ -147,6 +157,9 @@ namespace Managed
             // You might want to change this to true or expose it as a command-line option
             // if using `spatial cloud connect external` for debugging
             connectionParameters.Network.UseExternalIp = false;
+            connectionParameters.EnableProtocolLoggingAtStartup = true;
+            connectionParameters.ProtocolLogging.LogPrefix = "c:/logs/improbable/logs/" + workerId + "-log-";
+
 
             using (var future = Connection.ConnectAsync(hostname, port, workerId, connectionParameters))
             {
