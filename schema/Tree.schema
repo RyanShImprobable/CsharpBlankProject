@@ -1,0 +1,6 @@
+package improbable.managed;
+
+component Tree {
+	id = 1000;
+	int32 burned = 1;
+}
