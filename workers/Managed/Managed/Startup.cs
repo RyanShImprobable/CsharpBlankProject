@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
 using Improbable;
 using Improbable.Worker;
 using Improbable.Managed;
@@ -25,8 +26,13 @@ namespace Managed
         private static readonly WorkerRequirementSet TreeWorker =
             new WorkerRequirementSet(new Improbable.Collections.List<WorkerAttributeSet>
             {
-                new WorkerAttributeSet(new Improbable.Collections.List<string> {"Trees"})
+                new WorkerAttributeSet(new Improbable.Collections.List<string> {"simulation"})
             });
+
+        private readonly Dictionary<EntityId, IComponentData<Tree>> Components =
+            new Dictionary<EntityId, IComponentData<Tree>>();
+
+        private static IDictionary<EntityId, Entity> entities = new Dictionary<EntityId, Entity>();
 
         private static EntityId NextId
         {
@@ -75,18 +81,21 @@ namespace Managed
                 });
 
 
-               IDictionary<EntityId, Entity> entities = CreateTrees();
+                IDictionary<EntityId, Entity> entities = CreateTrees();
                 foreach (KeyValuePair<EntityId, Entity> entry in entities)
                 {
                     connection.SendCreateEntityRequest(entry.Value, entry.Key, new Option<uint>());
                 }
+
+                Thread.Sleep(20000);
 
                 String burned_value;
                 connection.GetWorkerFlag("improbable_burned").TryGetValue(out burned_value);
                 int burned_default = Int32.Parse(burned_value);
                 foreach (KeyValuePair<EntityId, Entity> entry in entities)
                 {
-                    connection.SendComponentUpdate(entry.Key, new Tree.Update().SetBurned(burned_default));
+                    Tree.Update tupdate = new Tree.Update();
+                    connection.SendComponentUpdate(entry.Key, tupdate.SetBurned(burned_default));
                 }
 
                 while (isConnected)
@@ -104,7 +113,6 @@ namespace Managed
 
         public static IDictionary<EntityId, Entity> CreateTrees()
         {
-            IDictionary<EntityId, Entity> entities = new Dictionary<EntityId, Entity>();
             int WorldSize = 160;
             for (int i = 0; i < 500; i++)
             {
@@ -123,7 +131,7 @@ namespace Managed
             var writeAuth = new Map<uint, WorkerRequirementSet>();
             writeAuth.Add(Tree.ComponentId, TreeWorker);
             var entity = BaseEntity(x, z, "Tree", writeAuth);
-            entity.Add(new Tree.Data(0));
+            entity.Add(new Tree.Data(9));
             return entity;
         }
 
