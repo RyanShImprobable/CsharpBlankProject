@@ -9,8 +9,18 @@ using Improbable.Collections;
 
 namespace Managed
 {
+    class myTree
+    {
+        public myTree(int value)
+        {
+            burned = value;
+        }
+        public int burned;
+    }
     internal class Startup
     {
+        private static Dictionary<EntityId, myTree> trees = new Dictionary<EntityId, myTree>();
+        private static System.Collections.Generic.List<EntityId> pending_entities = new System.Collections.Generic.List<EntityId>();
         private static readonly Random Random = new Random();
 
         private static long id = 1L;
@@ -22,6 +32,8 @@ namespace Managed
         private const int ErrorExitStatus = 1;
 
         private const uint GetOpListTimeoutInMilliseconds = 100;
+
+        private static int flag_burned;
 
         private static readonly WorkerRequirementSet TreeWorker =
             new WorkerRequirementSet(new Improbable.Collections.List<WorkerAttributeSet>
@@ -80,6 +92,57 @@ namespace Managed
                     }
                 });
 
+                dispatcher.OnAddEntity(op =>
+                {
+                    pending_entities.Add(op.EntityId);                  
+                });
+
+                dispatcher.OnAddComponent<Tree>(op =>
+                {
+                    if (pending_entities.Contains(op.EntityId))
+                    {   
+                        if (op.Data.Get().Value.burned == 0)
+                        {
+                            Tree.Update tupdate = new Tree.Update();
+                            connection.SendComponentUpdate(op.EntityId, tupdate.SetBurned(flag_burned));
+                            
+                        }
+                        trees.Add(op.EntityId, new myTree(op.Data.Get().Value.burned));
+
+                    } else
+                    {
+                        throw new Exception();
+                    }
+                    
+                });
+
+                dispatcher.OnComponentUpdate<Tree>(op =>
+                {
+                    if (trees.ContainsKey(op.EntityId))
+                    {
+                        if (op.Update.Get().burned.HasValue)
+                        {
+                            trees[op.EntityId].burned = op.Update.Get().burned.Value;
+                        }                     
+                    }
+                    else
+                    {
+                        throw new Exception();
+                    }
+                });
+
+                dispatcher.OnFlagUpdate(op =>
+                {
+                    if (op.Name == "improbable_burned")
+                    {
+                        flag_burned = int.Parse(op.Value.Value);
+                        foreach (KeyValuePair<EntityId, myTree> tree in trees)
+                        {
+                            Tree.Update tupdate = new Tree.Update();
+                            connection.SendComponentUpdate(tree.Key, tupdate.SetBurned(flag_burned));
+                        }
+                    }
+                });
 
                 IDictionary<EntityId, Entity> entities = CreateTrees();
                 foreach (KeyValuePair<EntityId, Entity> entry in entities)
@@ -87,7 +150,7 @@ namespace Managed
                     connection.SendCreateEntityRequest(entry.Value, entry.Key, new Option<uint>());
                 }
 
-                Thread.Sleep(20000);
+                //Thread.Sleep(20000);
 
                 String burned_value;
                 connection.GetWorkerFlag("improbable_burned").TryGetValue(out burned_value);
